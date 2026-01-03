@@ -1,0 +1,237 @@
+// Prisma Schema for Arjun FoodLink
+// Campus Food Discovery Platform
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// User Model - Students and general users
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  phone         String?
+  role          Role      @default(STUDENT)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relations
+  accounts      Account[]
+  sessions      Session[]
+  reviews       Review[]
+  favorites     Favorite[]
+}
+
+// NextAuth Account Model
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+// NextAuth Session Model
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// NextAuth Verification Token
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// Mess Owner Model
+model MessOwner {
+  id        String   @id @default(cuid())
+  name      String
+  phone     String   @unique
+  email     String?
+  password  String
+  isVerified Boolean @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  messes       Mess[]
+  subscription Subscription?
+}
+
+// Mess Model - The core entity
+model Mess {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  address     String
+  locality    String
+  city        String   @default("Pune")
+  latitude    Float
+  longitude   Float
+  phone       String
+  
+  // Characteristics
+  cuisineTypes String    // Comma-separated: "NORTH_INDIAN,SOUTH_INDIAN"
+  isVeg        Boolean   @default(false)
+  isNonVeg     Boolean   @default(false)
+  
+  // Pricing
+  priceRange   PriceRange @default(MODERATE)
+  monthlyPrice Int?       // Monthly subscription price
+  perMealPrice Int?       // Per meal price
+  
+  // Timings
+  openTime     String     @default("07:00")
+  closeTime    String     @default("22:00")
+  
+  // Media
+  photos       String     // Comma-separated URLs
+  
+  // Status
+  isVerified   Boolean    @default(false)
+  isActive     Boolean    @default(true)
+  isFeatured   Boolean    @default(false)
+  
+  // Stats
+  totalViews   Int        @default(0)
+  avgRating    Float      @default(0)
+  totalReviews Int        @default(0)
+  
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  
+  // Relations
+  ownerId      String
+  owner        MessOwner  @relation(fields: [ownerId], references: [id])
+  menus        Menu[]
+  reviews      Review[]
+  favorites    Favorite[]
+}
+
+// Menu Model - Daily menus
+model Menu {
+  id          String   @id @default(cuid())
+  dayOfWeek   DayOfWeek
+  mealType    MealType
+  items       String   // Comma-separated items
+  specialItem String?  // Special dish of the day
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  messId      String
+  mess        Mess     @relation(fields: [messId], references: [id], onDelete: Cascade)
+  
+  @@unique([messId, dayOfWeek, mealType])
+}
+
+// Review Model
+model Review {
+  id            String   @id @default(cuid())
+  rating        Int      // 1-5
+  foodRating    Int      // 1-5
+  hygieneRating Int      // 1-5
+  comment       String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  // Relations
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messId        String
+  mess          Mess     @relation(fields: [messId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, messId])
+}
+
+// Favorite Model
+model Favorite {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  
+  // Relations
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messId    String
+  mess      Mess     @relation(fields: [messId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, messId])
+}
+
+// Subscription Model for Mess Owners
+model Subscription {
+  id         String     @id @default(cuid())
+  plan       PlanType   @default(BASIC)
+  startDate  DateTime   @default(now())
+  endDate    DateTime
+  isActive   Boolean    @default(true)
+  amount     Int
+  paymentId  String?
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+  
+  // Relations
+  ownerId    String     @unique
+  owner      MessOwner  @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+}
+
+// Enums
+enum Role {
+  STUDENT
+  MESS_OWNER
+  ADMIN
+}
+
+enum PriceRange {
+  BUDGET    // < ₹2000/month
+  MODERATE  // ₹2000-3500
+  PREMIUM   // > ₹3500
+}
+
+enum MealType {
+  BREAKFAST
+  LUNCH
+  DINNER
+}
+
+enum DayOfWeek {
+  MONDAY
+  TUESDAY
+  WEDNESDAY
+  THURSDAY
+  FRIDAY
+  SATURDAY
+  SUNDAY
+}
+
+enum PlanType {
+  BASIC    // ₹299/month
+  PRO      // ₹499/month
+  PREMIUM  // ₹799/month
+}
