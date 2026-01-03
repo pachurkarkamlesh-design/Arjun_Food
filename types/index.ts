@@ -39,6 +39,7 @@ export interface MessOwner {
 
 export interface Mess {
   id: string
+  _id?: string  // MongoDB ObjectId
   name: string
   description: string | null
   address: string
